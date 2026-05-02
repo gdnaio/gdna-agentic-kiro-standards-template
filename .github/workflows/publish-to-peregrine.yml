@@ -85,7 +85,7 @@ jobs:
           aws s3 cp /tmp/manifest.json "${S3_PREFIX}/manifest.json" --no-cli-pager
           echo "zip-name=${ZIP_NAME}" >> $GITHUB_OUTPUT
 
-      - name: Register version in Peregrine
+      - name: Register version
         run: |
           VERSION="${{ steps.manifest.outputs.version }}"
           PRODUCT="${{ steps.manifest.outputs.product-id }}"
@@ -97,28 +97,23 @@ jobs:
             -d "{\"version\":\"${VERSION}\",\"description\":\"${PRODUCT} v${VERSION}\",\"projectType\":\"${TYPE}\",\"slug\":\"${SLUG}\",\"repository\":\"${GITHUB_REPOSITORY}\",\"commitSha\":\"${GITHUB_SHA}\"}" \
             --no-progress-meter || true
 
-      - name: Promote and deploy
+      - name: Deploy via artifact router
         run: |
           VERSION="${{ steps.manifest.outputs.version }}"
           PRODUCT="${{ steps.manifest.outputs.product-id }}"
-          TYPE="${{ steps.manifest.outputs.project-type }}"
-          SLUG="${{ steps.manifest.outputs.slug }}"
           API="https://k6wq9xbvc8.execute-api.us-east-1.amazonaws.com/dev"
 
+          # Promote to current
           curl -sf -X PUT "${API}/ops/products/${PRODUCT}/versions/${VERSION}" \
             -H "Content-Type: application/json" -d '{"status":"current"}' --no-progress-meter || true
 
-          case "${TYPE}" in
-            landing-page)
-              curl -sf -X POST "${API}/ops/landing-pages/${SLUG}/deploy" \
-                -H "Content-Type: application/json" \
-                -d "{\"source\":\"products/${PRODUCT}/${VERSION}/landing-dist.zip\",\"version\":\"${VERSION}\",\"deployedBy\":\"github-actions\"}" \
-                --no-progress-meter || echo "Deploy failed - register landing page in Peregrine first"
-              ;;
-            demo) echo "Demo artifacts staged at products/${PRODUCT}/${VERSION}/" ;;
-            onboarding) echo "Onboarding artifacts staged at products/${PRODUCT}/${VERSION}/" ;;
-            saas-app) echo "SaaS artifacts staged - deploy via product-update API" ;;
-          esac
+          # Deploy via unified artifact router
+          RESULT=$(curl -sf -X POST "${API}/ops/artifacts/deploy" \
+            -H "Content-Type: application/json" \
+            -d "{\"productId\":\"${PRODUCT}\",\"version\":\"${VERSION}\",\"deployedBy\":\"github-actions\"}" \
+            --no-progress-meter 2>&1) || RESULT='{"status":"failed"}'
+
+          echo "${RESULT}" | jq . 2>/dev/null || echo "${RESULT}"
 
       - name: Summary
         run: |
@@ -129,3 +124,4 @@ jobs:
           echo "| Version | ${{ steps.manifest.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Type | ${{ steps.manifest.outputs.project-type }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Slug | ${{ steps.manifest.outputs.slug }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Domain | ${{ steps.manifest.outputs.slug }}.${{ steps.manifest.outputs.domain }} |" >> $GITHUB_STEP_SUMMARY
