@@ -4,59 +4,38 @@ inclusion: auto
 
 # GitHub Workflow Rules
 
-> This file supplements the g/d/n/a git-standards.md and mcp-best-practices.md from the AIDLC template.
-> Where those standards define general git and MCP behavior, this file handles GitHub-specific operational rules.
+> Supplements git-standards.md and mcp-best-practices.md.
 > In case of conflict, git-standards.md governs commit format, branching, and PR requirements.
 
 ## Default Organization
-- Default org is `gdnaio`. When the user says "create a repo" or references repos without specifying an owner, assume `gdnaio`.
-- Never create repos under `gdnawill` (personal account) unless explicitly asked.
+- Default org is `gdnaio`. Assume `gdnaio` unless the user specifies otherwise.
+- Never create repos under personal accounts unless explicitly asked.
 
 ## Repository Creation
-- The MCP `create_repository` tool does NOT support an organization parameter — **never use it**.
-- Use the `gh` CLI instead:
-  ```bash
-  gh repo create gdnaio/<repo-name> --private --description "<description>"
-  ```
-- Default to `--private` unless the user explicitly asks for a public repo.
+- Use MCP `create_repository` with `organization: "gdnaio"` — always include the org parameter.
+- Default to `private: true` unless the user explicitly asks for public.
 
 ## Template Repos
-- The org has these Kiro standards templates:
-  - `gdnaio/gdna-aidlc-kiro-standards-template` — general AIDLC projects
-  - `gdnaio/gdna-hubspot-kiro-standards-template` — HubSpot CMS projects
-  - `gdnaio/gdna-agentic-kiro-standards-template` — pure agentic/agentcore projects
-- To create a repo from a template, use `gh`:
-  ```bash
-  gh repo create gdnaio/<new-repo> --template gdnaio/<template-repo> --private --clone
-  ```
+- `gdnaio/gdna-aidlc-kiro-standards-template` — general AIDLC projects
+- `gdnaio/gdna-hubspot-kiro-standards-template` — HubSpot CMS projects
+- `gdnaio/gdna-agentic-kiro-standards-template` — pure agentic/agentcore projects
 
 ## Initial Push (Bootstrap Exception)
 - Per git-standards.md, `main` is protected and requires PRs for normal work.
-- **Exception**: When bootstrapping a brand-new repo, push the initial commit directly to `main`:
-  ```bash
-  git init
-  git remote add origin https://github.com/gdnaio/<repo-name>.git
-  git add .
-  git commit -m "chore: initial project scaffold"
-  git branch -M main
-  git push -u origin main
-  ```
-- After the initial push, all subsequent work follows git-standards.md: feature branches, PRs, squash merge.
-- Do NOT use MCP `push_files` or `create_or_update_file` for initial repo setup — they are unreliable on fresh repos.
+- **Exception**: When bootstrapping a brand-new repo, push the initial commit directly to `main`.
+- After the initial push, all subsequent work follows git-standards.md.
 
-## MCP GitHub Tool Rules
-- **Known limitation**: MCP `get_file_contents` requires the `branch` parameter for `gdnaio` repos. Always pass `branch: "main"` (or the target branch).
-- If any MCP GitHub tool fails on a `gdnaio` repo, immediately fall back to `gh` CLI — don't retry MCP.
-- MCP search/list tools (search_repositories, list_issues, list_pull_requests, list_commits) work reliably. Use them normally with `gdnaio` as owner.
+## MCP GitHub Server
+- Official `github/github-mcp-server` via Homebrew.
+- Token vended via AWS Secrets Manager (`gdnaio/kiro-github-mcp-token`).
+- Dev setup: `brew install github-mcp-server jq && .kiro/scripts/bootstrap-github-mcp.sh`
 
-## PRs and Merges
-- Use `gh` CLI for PR creation to stay consistent:
-  ```bash
-  gh pr create --title "<type>(scope): description" --body "<description>" --base main
-  ```
-- PR titles follow conventional commit format per git-standards.md.
-- Squash merge to `main` per git-standards.md.
+## DESTRUCTIVE OPERATIONS — BLOCKED
+- Repository deletion, force push, branch protection changes, org settings changes — all blocked.
+- If needed, user must do it manually on GitHub.
 
-## Branch Naming
-- Per git-standards.md: `{type}/{ticket}-{short-description}`
-- Examples: `feat/TICKET-123-add-dashboard`, `fix/TICKET-456-login-redirect`
+## Allowed Operations
+- Create repos (with `organization: "gdnaio"`), read/write files, branches, PRs, issues, comments, reviews.
+
+## PRs: conventional commit titles, squash merge to main.
+## Branches: `{type}/{ticket}-{short-description}`
